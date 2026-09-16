@@ -36,7 +36,7 @@ for i in $(seq 1 "${REPEAT}"); do
 done
 
 echo "==> exporting energy time-series from Prometheus"
-"${ROOT}/scripts/export_energy.py" \
+"${ROOT}/analysis/export_energy.py" \
   --prom "${PROM_URL}" \
   --group "${END_GROUP}" --arch "${END_ARCH}" \
   --start "${RUN_ID%%T*}" \
