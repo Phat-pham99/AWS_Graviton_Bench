@@ -1,0 +1,13 @@
+# Recording rules that convert raw power counters into the study's primary
+# metrics. These are queried by the analysis pipeline (analysis/).
+groups:
+  - name: energy_metrics
+    interval: 10s
+    rules:
+      # Accumulated CPU energy in microjoules (Kepler kepler_container_joules_total)
+      # summed across the whole node (processes). Divided by runtime to get W.
+      - record: job:energy_joules:sum
+        expr: sum by (group, arch, job) (kepler_process_joules_total)
+      # Node instantaneous power in watts (mirrors RAPL package energy / time).
+      - record: node:power_watts
+        expr: rate(kepler_node_joules_total{job=~"kepler_.*"}[2m])

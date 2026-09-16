@@ -1,0 +1,61 @@
+# Prometheus scrape configuration for the central telemetry stack.
+#
+# Collects power/energy and workload metrics from both SUTs. Energy is captured
+# from Kepler (process/container power, both arches) and cross-checked with
+# Scaphandre (RAPL-based, x86_64 only -- ARM has no RAPL, hence Kepler as the
+# primary energy source for the Graviton group).
+global:
+  scrape_interval: 10s      # energy capture rate (tight enough for Joules/req)
+  evaluation_interval: 15s
+  external_labels:
+    experiment: aws-graviton-bench
+
+rule_files:
+  - /etc/prometheus/energy_rules.yml
+
+scrape_configs:
+  # ---- SUT control group (x86_64) ----
+  - job_name: kepler_control
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['control:9102']
+        labels: {group: control, arch: x86_64}
+  - job_name: scaphandre_control
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['control:9111']
+        labels: {group: control, arch: x86_64}
+  - job_name: node_control
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['control:9100']
+        labels: {group: control, arch: x86_64}
+
+  # ---- SUT test group (ARM64 / Graviton) ----
+  - job_name: kepler_test
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['test:9102']
+        labels: {group: test, arch: arm64}
+  - job_name: scaphandre_test
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['test:9111']
+        labels: {group: test, arch: arm64}
+  - job_name: node_test
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['test:9100']
+        labels: {group: test, arch: arm64}
+
+  # ---- Workload microservice (optional self-metrics) ----
+  - job_name: workload_control
+    metrics_path: /metricz
+    static_configs:
+      - targets: ['control:8080']
+        labels: {group: control, arch: x86_64}
+  - job_name: workload_test
+    metrics_path: /metricz
+    static_configs:
+      - targets: ['test:8080']
+        labels: {group: test, arch: arm64}
