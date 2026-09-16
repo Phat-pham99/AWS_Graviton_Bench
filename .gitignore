@@ -231,3 +231,7 @@ loadgen/results/
 
 # Local tooling
 .terraform.lock.hcl
+
+# Go build artifacts
+workload/workload
+workload/bench
