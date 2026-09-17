@@ -216,3 +216,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Benchmark artifacts (never commit measurements/results)
+results/
+loadgen/results/
+*.csv
+
+# Local tooling
+.terraform.lock.hcl
+
+# Go build artifacts
+workload/workload
+workload/bench
