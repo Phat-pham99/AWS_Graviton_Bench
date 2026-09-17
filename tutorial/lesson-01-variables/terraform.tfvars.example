@@ -1,0 +1,3 @@
+# Copy me to `terraform.tfvars` and edit the values.
+environment = "research"
+group_name  = "control"

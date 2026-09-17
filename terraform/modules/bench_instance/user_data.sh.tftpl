@@ -1,0 +1,103 @@
+# Bootstrap used for BOTH SUT (control/test) and load generator instances.
+#
+# On SUT hosts it installs the telemetry stack (Kepler eBPF energy profiler,
+# Scaphandre power estimator, Prometheus node exporter) and runs the benchmark
+# microservice container. On the load generator it installs k6 and wires a
+# systemd timer to drive configurable run scenarios.
+#!/bin/bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+# --- Common packages ----------------------------------------------------------
+apt-get update -y
+apt-get install -y curl ca-certificates gnupg lsb-release docker.io docker-compose-v2
+
+systemctl enable --now docker
+
+# Label node for telemetry correlation.
+echo "{}" > /etc/node-label.json
+NODE_META='{"group":"${group}","arch":"${arch}","fqdn":"${fqdn}","is_sut":${is_sut}}'
+install -m 0644 <(printf '%s' "${NODE_META}") /etc/graviton_bench_node.json
+
+%{ if is_sut }
+
+# --- SUT: Start benchmark microservice ---------------------------------------
+# Architecture-specific image tag is selected by user-data variable; image is
+# pushed by CI to ECR under a manifest list so `docker pull` resolves the
+# correct arch automatically. We still log the reported GOARCH for audit.
+mkdir -p /opt/bench
+cat > /opt/bench/docker-compose.yml <<'EOF'
+services:
+  bench:
+    image: ${sut_image}
+    platform: ${sut_platform}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      GOMAXPROCS: "${sut_gomaxprocs}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${sut_cpus}"
+          memory: "${sut_mem}"
+EOF
+
+docker compose -f /opt/bench/docker-compose.yml up -d
+
+%{ if kepler }
+# --- Kepler (eBPF energy profiler) -------------------------------------------
+# Kepler exposes /metrics on :9102 with process- and container-level power.
+curl -fsSL https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/hack/kepler-release.sh | sh -s -- ccloud
+%{ endif }
+
+%{ if scaphandre }
+# --- Scaphandre (power estimator) ---------------------------------------------
+# Exporters on :8080/metrics by default; we reposition to :9111 to avoid
+# clashing with the workload. Scaphandre uses RAPL on x86 and is a no-op fallback
+# on ARM where Kepler provides energy.
+docker run -d --restart unless-stopped \
+  --name scaphandre --privileged --network host \
+  --volume /sys:/sys:ro --volume /proc:/proc:ro \
+  --env SCAPHANDRE_OPT=prometheus --env SCAPHANDRE_PROMETHEUS_PORT=9111 \
+  hubblo/scaphandre
+%{ endif }
+
+%{ if node_exporter }
+# --- Prometheus node exporter -------------------------------------------------
+docker run -d --restart unless-stopped \
+  --name node-exporter --network host \
+  --volume /proc:/host/proc:ro --volume /sys:/host/sys:ro --volume /:/rootfs:ro \
+  --env P_ROOTFS=/rootfs --env P_SYSTEMD_OFF=true \
+  prom/node-exporter --path.procfs=/host/proc --path.sysfs=/host/sys --path.rootfs=/rootfs
+%{ endif }
+
+%{ else }
+
+# --- LOAD GENERATOR: k6 -------------------------------------------------------
+curl -fsSL https://rpm.grafana.com/... >/dev/null 2>&1 || true
+docker pull grafana/k6:latest
+mkdir -p /opt/loadgen/results
+
+# Run wrapper: invoked by systemd or manually by the experiment driver.
+install -m 0755 /dev/stdin /usr/local/bin/run-benchmark <<'BASHEOF'
+#!/bin/bash
+set -euo pipefail
+BASE_URL="\${BASE_URL:?BASE_URL required}"
+ENDPOINT="\${ENDPOINT:-cpu}"
+VUS="\${VUS:-16}"
+DURATION="\${DURATION:-120s}"
+RUN_ID="\${RUN_ID:?\$(date -u +%FT%TZ)}"
+mkdir -p /opt/loadgen/results
+docker run --rm --network host \
+  -e BASE_URL="$BASE_URL" -e ENDPOINT="$ENDPOINT" -e VUS="$VUS" \
+  -e DURATION="$DURATION" -e RUN_ID="$RUN_ID" \
+  --volume /opt/loadgen:/scripts \
+  grafana/k6 run --summary-export /scripts/results/${RUN_ID}_${ENDPOINT}.json \
+  --out json=/scripts/results/${RUN_ID}_${ENDPOINT}.raw.json \
+  /benchmark/benchmark.js
+BASHEOF
+%{ endif }
+
+echo "bootstrap complete for ${fqdn}"

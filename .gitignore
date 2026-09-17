@@ -216,3 +216,36 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Terraform / OpenTofu
+# ---------------------------------------------------------------------------
+# Local .terraform directories
+**/.terraform/*
+
+# State files (never commit — may contain secrets)
+*.tfstate
+*.tfstate.*
+*.tfstate.lock.info
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Plan files
+*.plan
+*.tfplan
+
+# Variable files (may contain secrets like passwords/AMIs)
+*.tfvars
+terraform.tfvars
+!terraform.tfvars.example
+!*.tfvars.example
+
+# Backend config (contains S3 bucket/key — do not commit)
+backend.hcl
+*.backend.hcl
+
+# CLI config with credentials
+.terraformrc
+terraform.rc

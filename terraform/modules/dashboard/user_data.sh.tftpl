@@ -1,0 +1,86 @@
+# Bootstrap for the central dashboard host (Prometheus Server + Grafana).
+#!/bin/bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update -y
+apt-get install -y curl ca-certificates gnupg docker.io docker-compose-v2 jq
+
+systemctl enable --now docker
+
+mkdir -p /opt/dashboard
+
+cat > /opt/dashboard/prometheus.yml <<'EOF'
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting: {}
+
+scrape_configs:
+  - job_name: node_control
+    static_configs:
+      - targets: ['${targets_control}:9100']
+  - job_name: node_test
+    static_configs:
+      - targets: ['${targets_test}:9100']
+  - job_name: kepler_control
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['${targets_control}:9102']
+  - job_name: kepler_test
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['${targets_test}:9102']
+  - job_name: scaphandre_control
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['${targets_control}:9111']
+  - job_name: scaphandre_test
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['${targets_test}:9111']
+  - job_name: workload_control
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['${targets_control}:8080']
+  - job_name: workload_test
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['${targets_test}:8080']
+EOF
+
+cat > /opt/dashboard/docker-compose.yml <<EOF
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${grafana_password}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${grafana_port}:3000"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+EOF
+
+cd /opt/dashboard && docker compose up -d
+
+echo "dashboard bootstrap complete"
