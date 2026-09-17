@@ -1,0 +1,4 @@
+# Copy to `terraform.tfvars` and fill in (then ensure it's git-ignored!).
+ssh_key_name          = "my-key-pair-name"
+x86_ami               = "ami-0123456789abcdef0"
+grafana_admin_password = "change-me"

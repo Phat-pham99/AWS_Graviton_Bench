@@ -63,7 +63,6 @@ module "control" {
   telemetry_enable_scaphandre = var.telemetry_enable_scaphandre
   telemetry_enable_exporter  = var.telemetry_enable_exporter
   prometheus_scrape_interval = var.prometheus_scrape_interval
-  dashboard_internal_ip      = module.network.dashboard_sg_id
   sut_image                  = "public.ecr.aws/graviton-bench/workload:latest"
   sut_platform               = "linux/amd64"
   sut_gomaxprocs             = 4
@@ -90,7 +89,6 @@ module "test" {
   telemetry_enable_scaphandre = var.telemetry_enable_scaphandre
   telemetry_enable_exporter  = var.telemetry_enable_exporter
   prometheus_scrape_interval = var.prometheus_scrape_interval
-  dashboard_internal_ip      = module.network.dashboard_sg_id
   sut_image                  = "public.ecr.aws/graviton-bench/workload:latest"
   sut_platform               = "linux/arm64"
   sut_gomaxprocs             = 4
@@ -118,7 +116,6 @@ module "loadgen" {
   telemetry_enable_scaphandre = false
   telemetry_enable_exporter   = false
   prometheus_scrape_interval  = var.prometheus_scrape_interval
-  dashboard_internal_ip       = module.network.dashboard_sg_id
   iam_instance_profile        = var.iam_instance_profile
   tags                        = local.tags
 }

@@ -9,7 +9,6 @@ variable "telemetry_enable_kepler"      { type = bool }
 variable "telemetry_enable_scaphandre"  { type = bool }
 variable "telemetry_enable_exporter"    { type = bool }
 variable "prometheus_scrape_interval"   { type = string }
-variable "dashboard_internal_ip"        { type = string }
 variable "iam_instance_profile"         { type = string }
 variable "tags"                         { type = map(string) }
 
@@ -48,7 +47,6 @@ resource "aws_instance" "this" {
     scaphandre                = var.telemetry_enable_scaphandre
     node_exporter             = var.telemetry_enable_exporter
     scrape_interval           = var.prometheus_scrape_interval
-    dashboard_sg_id           = var.dashboard_internal_ip
     sut_image                 = var.sut_image
     sut_platform              = var.sut_platform
     sut_gomaxprocs            = var.sut_gomaxprocs
